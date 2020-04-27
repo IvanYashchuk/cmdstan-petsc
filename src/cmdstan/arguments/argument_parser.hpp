@@ -20,7 +20,7 @@ namespace cmdstan {
     }
 
     int parse_args(int argc,
-                   const char* argv[],
+                   char* argv[],
                    stan::callbacks::writer& info,
                    stan::callbacks::writer& err) {
       if (argc == 1) {
