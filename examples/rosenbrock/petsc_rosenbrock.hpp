@@ -4,19 +4,16 @@
 #define PETSC_CLANGUAGE_CXX 1
 
 /*
-This example demonstrates use of the TAO package to
-solve an unconstrained minimization problem on a single processor.
-We minimize the extended Rosenbrock function:
+This example demonstrates use of PETSc with Stan on a single processor.
+We consider the extended Rosenbrock function:
 sum_{i=0}^{n/2-1} ( alpha*(x_{2i+1}-x_{2i}^2)^2 + (1-x_{2i})^2 )
 */
 
 #include <petsc.h>
 
-#include <iostream>
-
 /*
    User-defined application context - contains data needed by the
-   application-provided call-back routines that evaluate the function,
+   application-provided callback routines that evaluate the function,
    gradient, and hessian.
 */
 typedef struct {
@@ -51,14 +48,12 @@ public:
     PetscInt i, nn = appctx_.n/2;
     PetscErrorCode ierr;
     PetscReal ff = 0;
-    PetscReal alpha=appctx_.alpha;
+    PetscReal alpha = appctx_.alpha;
     PetscReal t1, t2;
     PetscReal *x;
 
     /* Get pointers to vector data */
     ierr = VecGetArray(X, &x);CHKERRQ(ierr);
-    // PetscPrintf(PETSC_COMM_SELF,"Forward input:\n");
-    // PetscRealView(2, x, PETSC_VIEWER_STDOUT_SELF);
 
     /* Compute G(X) */
     for (i=0; i<nn; i++){
@@ -84,11 +79,6 @@ public:
     /* Get pointers to vector data */
     ierr = VecGetArray(X, &x);CHKERRQ(ierr);
     ierr = VecGetArray(G, &g);CHKERRQ(ierr);
-
-    // PetscPrintf(PETSC_COMM_SELF,"Backward input:\n");
-    // PetscRealView(2, x, PETSC_VIEWER_STDOUT_SELF);
-    // std::cout << "PETSCREALADJ:  " << adj << std::endl;
-    // PetscReal ff = 0;
   
     /* Compute G(X) */
     for (i=0; i<nn; i++){
@@ -97,12 +87,6 @@ public:
         g[2*i] = adj*(-4*alpha*t1*x[2*i]-2.0*t2);
         g[2*i+1] = adj*(2*alpha*t1);
     }
-
-    // PetscPrintf(PETSC_COMM_SELF,"PETSc objective: \n");
-    // std::cout << ff << std::endl;
-
-    // PetscPrintf(PETSC_COMM_SELF,"PETSc gradient: \n");
-    // PetscRealView(2, g, PETSC_VIEWER_STDOUT_SELF);
 
     /* Restore vectors */
     ierr = VecRestoreArray(X,&x);CHKERRQ(ierr);
