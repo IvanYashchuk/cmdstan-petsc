@@ -13,6 +13,7 @@ parameters {
 
 transformed parameters {
   vector[2] simulated = my_vanderpol(initial_conditions);
+  for (n in 1:2) { print("Simulated state: ", simulated[n]); }
 }
 
 model {
