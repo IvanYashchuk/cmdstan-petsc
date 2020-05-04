@@ -17,6 +17,6 @@ transformed parameters {
 }
 
 model {
-  target += normal_lpdf(initial_conditions | simulated, sigma);
+  target += normal_lpdf(observed | simulated, sigma);
 }
 
