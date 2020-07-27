@@ -37,6 +37,14 @@ void PetscVecToEigen(const Vec& pvec, Eigen::VectorXd& evec)
     ierr = VecRestoreArray(pvec, &pdata);CHKERRXX(ierr);
 }
 
+Vec EigenVectorToPetscVec(const Eigen::Ref<const Eigen::VectorXd>& evec)
+{
+    PetscErrorCode ierr;
+    Vec pvec;
+    ierr = VecCreateSeqWithArray(PETSC_COMM_SELF, 1, evec.size(), evec.data(), &pvec);CHKERRXX(ierr);
+    return pvec;
+}
+
 template <class ExternalSolver>
 class petsc_functor {
     int N_;
@@ -63,9 +71,7 @@ public:
         }
 
         // Convert Eigen input to PETSc Vec
-        Vec petsc_x;
-        PetscErrorCode ierr;
-        ierr = VecCreateSeqWithArray(PETSC_COMM_SELF, 1, x.size(), x.data(), &petsc_x);CHKERRXX(ierr);
+        Vec petsc_x = EigenVectorToPetscVec(x);
 
         // Initialize PETSc Real to hold the results
         PetscReal petsc_out;
@@ -96,9 +102,9 @@ public:
         Eigen::Map<vector_d> x(x_mem_, N_);
 
         // Convert Eigen input to PETSc Vec
-        Vec petsc_x, petsc_grad;
+        Vec petsc_grad;
+        Vec petsc_x = EigenVectorToPetscVec(x);
         PetscErrorCode ierr;
-        ierr = VecCreateSeqWithArray(PETSC_COMM_SELF, 1, x.size(), x.data(), &petsc_x);CHKERRXX(ierr);
         ierr = VecDuplicate(petsc_x, &petsc_grad);
 
         // Calculate petsc_grad = adj * Jacobian(petsc_x)
