@@ -105,7 +105,7 @@ public:
         Vec petsc_grad;
         Vec petsc_x = EigenVectorToPetscVec(x);
         PetscErrorCode ierr;
-        ierr = VecDuplicate(petsc_x, &petsc_grad);
+        ierr = VecDuplicate(petsc_x, &petsc_grad);CHKERRXX(ierr);
 
         // Calculate petsc_grad = adj * Jacobian(petsc_x)
         solver_.solve_adjoint(petsc_x, petsc_grad, adj(0));
