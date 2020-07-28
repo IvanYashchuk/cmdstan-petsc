@@ -97,22 +97,22 @@ namespace cmdstan {
           return stan::services::error_codes::OK;
         }
 
-        if (!good_arg) {
-          err(cat_name + " is either mistyped or misplaced.");
+        // if (!good_arg) {
+        //   err(cat_name + " is either mistyped or misplaced.");
 
-          std::vector<std::string> valid_paths;
+        //   std::vector<std::string> valid_paths;
 
-          for (size_t i = 0; i < _arguments.size(); ++i) {
-            _arguments.at(i)->find_arg(val_name, "", valid_paths);
-          }
+        //   for (size_t i = 0; i < _arguments.size(); ++i) {
+        //     _arguments.at(i)->find_arg(val_name, "", valid_paths);
+        //   }
 
-          if (valid_paths.size()) {
-            err("Perhaps you meant one of the following "
-                "valid configurations?");
-            for (size_t i = 0; i < valid_paths.size(); ++i)
-              err("  " + valid_paths.at(i));
-          }
-        }
+        //   if (valid_paths.size()) {
+        //     err("Perhaps you meant one of the following "
+        //         "valid configurations?");
+        //     for (size_t i = 0; i < valid_paths.size(); ++i)
+        //       err("  " + valid_paths.at(i));
+        //   }
+        // }
       }
 
       if (_help_flag)
@@ -121,6 +121,8 @@ namespace cmdstan {
       if (!_method_flag)
         err("A method must be specified!");
 
+      // Interpret non-Stan arguments as PETSc options
+      good_arg = true;
       return (valid_arg && good_arg && _method_flag)
         ? stan::services::error_codes::OK : stan::services::error_codes::USAGE;
     }
