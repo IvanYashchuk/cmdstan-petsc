@@ -26,6 +26,7 @@ class PetscRosenbrock
 public:
   /// User-defined application context
   AppCtx appctx_;
+  Vec dummy;
 
   explicit PetscRosenbrock(MPI_Comm comm) : appctx_()
   {
@@ -38,9 +39,17 @@ public:
     PetscBool flg;
     ierr = PetscOptionsGetInt(NULL, NULL, "-n", &appctx_.n, &flg);CHKERRXX(ierr);
     ierr = PetscOptionsGetReal(NULL, NULL, "-alpha", &appctx_.alpha, &flg);CHKERRXX(ierr);
+
+    // dummy Vec is for checking whether the destructor will be called automatically
+    ierr = VecCreateSeq(PETSC_COMM_WORLD, appctx_.n, &dummy);
+    ierr = VecSet(dummy, appctx_.alpha);
+    ierr = VecAssemblyBegin(dummy);
+    ierr = VecAssemblyEnd(dummy);
   }
 
-  virtual ~PetscRosenbrock() {}
+  virtual ~PetscRosenbrock() {
+    VecDestroy(&dummy);
+  }
 
   /// Solve the forward problem
   PetscErrorCode solve_forward(Vec X, PetscReal *f) const
