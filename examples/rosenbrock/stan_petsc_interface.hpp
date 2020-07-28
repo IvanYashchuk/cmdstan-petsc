@@ -82,6 +82,7 @@ public:
         // Convert PETSc output to Eigen
         Eigen::VectorXd out(1);
         out(0) = petsc_out;
+        PetscErrorCode ierr = VecDestroy(&petsc_x);CHKERRXX(ierr);
 
         return out;
     }
@@ -109,10 +110,12 @@ public:
 
         // Calculate petsc_grad = adj * Jacobian(petsc_x)
         solver_.solve_adjoint(petsc_x, petsc_grad, adj(0));
+        ierr = VecDestroy(&petsc_x);CHKERRXX(ierr);
 
         // Convert PETSc Vec to Eigen
         Eigen::VectorXd out(N_);
         PetscVecToEigen(petsc_grad, out);
+        ierr = VecDestroy(&petsc_grad);CHKERRXX(ierr);
 
         return std::make_tuple(out);
     }
