@@ -1,7 +1,7 @@
 
-STAN_MPI=true
-#CXX=mpicxx
-TBB_CXX_TYPE=gcc
+# STAN_MPI=false
+# CXX=mpicxx
+# TBB_CXX_TYPE=clang
 
 ifndef PETSC_DIR
 $(error PETSC_DIR is not set. Please set PETSC_DIR via export PETSC_DIR=/path/to/petsc)
