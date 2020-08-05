@@ -10,8 +10,6 @@
 # - CXX: The compiler to use. Expecting g++ or clang++.
 # - O: Optimization level. Valid values are {s, 0, 1, 2, 3}.
 #      Default is 3.
-# - O_STANC: Optimization level for compiling stanc.
-#      Valid values are {s, 0, 1, 2, 3}. Default is 0
 # - STANCFLAGS: Extra options for calling stanc
 ##
 
@@ -24,13 +22,35 @@ help:
 STAN ?= stan/
 MATH ?= $(STAN)lib/stan_math/
 RAPIDJSON ?= lib/rapidjson_1.1.0/
-ifeq ($(OS),Windows_NT)
-  O_STANC ?= 3
-endif
-O_STANC ?= 0
 INC_FIRST ?= -I src -I $(STAN)src -I $(RAPIDJSON)
 USER_HEADER ?= $(dir $<)user_header.hpp
 
+ifdef STAN_THREADS
+STAN_FLAG_THREADS=_threads
+endif
+ifdef STAN_MPI
+STAN_FLAG_MPI=_mpi
+endif
+ifdef STAN_OPENCL
+STAN_FLAG_OPENCL=_opencl
+endif
+
+STAN_FLAGS=$(STAN_FLAG_THREADS)$(STAN_FLAG_MPI)$(STAN_FLAG_OPENCL)
+
+ifeq ($(OS),Windows_NT)
+PRECOMPILED_HEADERS ?= false
+else
+PRECOMPILED_HEADERS ?= true
+endif
+
+ifeq ($(PRECOMPILED_HEADERS),true)
+PRECOMPILED_MODEL_HEADER=$(STAN)src/stan/model/model_header$(STAN_FLAGS).hpp.gch
+ifeq ($(CXX_TYPE),gcc)
+CXXFLAGS_PROGRAM+= -Wno-ignored-attributes
+endif
+else
+PRECOMPILED_MODEL_HEADER=
+endif
 
 -include $(MATH)make/compiler_flags
 -include $(MATH)make/dependencies
@@ -42,13 +62,14 @@ include make/command
 
 -include make/petsc.make # PETSc user-defined variables (overwriting some of the original)
 
-ifneq ($(filter-out clean clean-% print-% help help-% manual stan-update/% stan-update stan-pr/%,$(MAKECMDGOALS)),)
--include $(patsubst %.cpp,%.d,$(STANC_TEMPLATE_INSTANTIATION_CPP))
--include src/cmdstan/stanc.d
+CMDSTAN_VERSION := 2.24.0
+
+ifeq ($(OS),Windows_NT)
+HELP_MAKE=mingw32-make
+else
+HELP_MAKE=make
 endif
 
-CMDSTAN_VERSION := 2.23.0
-CMDSTAN_VERSION_DOC := 2.23
 
 .PHONY: help
 help:
@@ -56,11 +77,7 @@ help:
 	@echo 'CmdStan v$(CMDSTAN_VERSION) help'
 	@echo ''
 	@echo '  Build CmdStan utilities:'
-ifeq ($(OS),Windows_NT)
-	@echo '    > mingw32-make build'
-else
-	@echo '    > make build'
-endif
+	@echo '    > $(HELP_MAKE) build'
 	@echo ''
 	@echo '    This target will:'
 	@echo '    1. Install the Stan compiler bin/stanc$(EXE) from stanc3 binaries.'
@@ -71,11 +88,7 @@ endif
 	@echo ''
 	@echo '    Note: to build using multiple cores, use the -j option to make, e.g., '
 	@echo '    for 4 cores:'
-ifeq ($(OS),Windows_NT)
-	@echo '    > mingw32-make build -j4'
-else
-	@echo '    > make build -j4'
-endif
+	@echo '    > $(HELP_MAKE) build -j4'
 	@echo ''
 ifeq ($(OS),Windows_NT)
 	@echo '    On Windows it is recommended to include with the PATH environment'
@@ -108,19 +121,11 @@ endif
 	@echo '  Example - bernoulli model: examples/bernoulli/bernoulli.stan'
 	@echo ''
 	@echo '    1. Build the model:'
-	@echo '       > make examples/bernoulli/bernoulli$(EXE)'
+	@echo '       > $(HELP_MAKE) examples/bernoulli/bernoulli$(EXE)'
 	@echo '    2. Run the model:'
-ifeq ($(OS),Windows_NT)
-	@echo '       > examples\bernoulli\bernoulli$(EXE) sample data file=examples/bernoulli/bernoulli.data.R'
-else
 	@echo '       > examples/bernoulli/bernoulli$(EXE) sample data file=examples/bernoulli/bernoulli.data.R'
-endif
 	@echo '    3. Look at the samples:'
-ifeq ($(OS),Windows_NT)
-	@echo '       > bin\stansummary$(EXE) output.csv'
-else
 	@echo '       > bin/stansummary$(EXE) output.csv'
-endif
 	@echo ''
 	@echo ''
 	@echo '  Clean CmdStan:'
@@ -135,7 +140,6 @@ help-dev:
 	@echo '--------------------------------------------------------------------------------'
 	@echo 'CmdStan help for developers:'
 	@$(MAKE) print-compiler-flags
-	@echo '  - O_STANC (Opt for stanc):    ' $(O_STANC)
 	@echo ''
 	@echo '  If this copy of CmdStan has been cloned using git,'
 	@echo '  before building CmdStan utilities the first time you need'
@@ -160,9 +164,6 @@ help-dev:
 	@echo '- *$(EXE)        : If a Stan model exists at *.stan, this target will build'
 	@echo '                   the Stan model as an executable.'
 	@echo '- compile_info   : prints compiler flags for compiling a CmdStan executable.'
-	@echo ''
-	@echo 'Documentation:'
-	@echo ' - manual:          Build the Stan manual and the CmdStan user guide.'
 	@echo '--------------------------------------------------------------------------------'
 
 .PHONY: build-mpi
@@ -172,13 +173,13 @@ build-mpi: $(MPI_TARGETS)
 
 ifeq ($(CMDSTAN_SUBMODULES),1)
 .PHONY: build
-build: bin/stanc$(EXE) bin/stansummary$(EXE) bin/print$(EXE) bin/diagnose$(EXE) $(LIBSUNDIALS) $(MPI_TARGETS) $(TBB_TARGETS) $(CMDSTAN_MAIN_O)
+build: bin/stanc$(EXE) bin/stansummary$(EXE) bin/print$(EXE) bin/diagnose$(EXE) $(LIBSUNDIALS) $(MPI_TARGETS) $(TBB_TARGETS) $(CMDSTAN_MAIN_O) $(PRECOMPILED_MODEL_HEADER)
 	@echo ''
 ifeq ($(OS),Windows_NT)
 		@echo 'NOTE: Please add $(TBB_BIN_ABSOLUTE_PATH) to your PATH variable.'
 		@echo 'You may call'
 		@echo ''
-		@echo 'mingw32-make install-tbb'
+		@echo '$(HELP_MAKE) install-tbb'
 		@echo ''
 		@echo 'to automatically update your user configuration.'
 endif
@@ -187,17 +188,12 @@ else
 .PHONY: build
 build:
 	@echo 'ERROR: Missing Stan submodules.'
-	@echo 'Please run the following commands to fix:'
+	@echo 'Please run the following to fix:'
 	@echo ''
-	@echo 'git submodule init'
-	@echo 'git submodule update --recursive'
+	@echo 'git submodule update --init --recursive'
 	@echo ''
 	@echo 'And try building again'
 	@exit 1
-endif
-
-ifeq ($(CXX_TYPE),clang)
-build: $(STAN)src/stan/model/model_header.hpp.gch
 endif
 
 .PHONY: install-tbb
@@ -220,20 +216,16 @@ clean: clean-manual
 
 clean-deps:
 	@echo '  removing dependency files'
-	$(RM) $(call findfiles,src,*.d) $(call findfiles,src/stan,*.d) $(call findfiles,$(MATH)/stan,*.d)
+	$(RM) $(call findfiles,src,*.d) $(call findfiles,src/stan,*.d) $(call findfiles,$(MATH)/stan,*.d) $(call findfiles,$(STAN)/src/stan/,*.d)
 	$(RM) $(call findfiles,src,*.d.*) $(call findfiles,src/stan,*.d.*) $(call findfiles,$(MATH)/stan,*.d.*)
 	$(RM) $(call findfiles,src,*.dSYM) $(call findfiles,src/stan,*.dSYM) $(call findfiles,$(MATH)/stan,*.dSYM)
 
-clean-manual:
-	$(RM) -r doc
-	cd src/docs/cmdstan-guide; $(RM) *.brf *.aux *.bbl *.blg *.log *.toc *.pdf *.out *.idx *.ilg *.ind *.cb *.cb2 *.upa
-
-clean-all: clean clean-deps clean-libraries clean-manual
+clean-all: clean clean-deps clean-libraries
 	$(RM) bin/stanc$(EXE) bin/stanc2$(EXE) bin/stansummary$(EXE) bin/print$(EXE) bin/diagnose$(EXE)
-	$(RM) -r $(CMDSTAN_MAIN_O) bin/cmdstan
-	$(RM) $(wildcard $(STAN)src/stan/model/model_header.hpp.gch)
+	$(RM) -r src/cmdstan/main*.o bin/cmdstan
+	$(RM) $(wildcard $(STAN)src/stan/model/model_header*.hpp.gch)
 	$(RM) examples/bernoulli/bernoulli$(EXE) examples/bernoulli/bernoulli.o examples/bernoulli/bernoulli.d examples/bernoulli/bernoulli.hpp
-
+	$(RM) -r $(wildcard $(BOOST)/stage/lib $(BOOST)/bin.v2 $(BOOST)/tools/build/src/engine/bootstrap/ $(BOOST)/tools/build/src/engine/bin.* $(BOOST)/project-config.jam* $(BOOST)/b2 $(BOOST)/bjam $(BOOST)/bootstrap.log)
 
 clean-program:
 ifndef STANPROG
@@ -262,19 +254,9 @@ stan-pr/%: stan-update
 stan-revert:
 	git submodule update --init --recursive
 
-
 ##
-# Manual related
+# Debug target that prints compile command for CmdStan executable
 ##
-
-.PHONY: src/docs/cmdstan-guide/cmdstan-guide.tex
-manual: src/docs/cmdstan-guide/cmdstan-guide.pdf
-	mkdir -p doc
-	mv -f src/docs/cmdstan-guide/cmdstan-guide.pdf doc/cmdstan-guide-$(CMDSTAN_VERSION_DOC).pdf
-
-%.pdf: %.tex
-	cd $(dir $@); latexmk -pdf -pdflatex="pdflatex -file-line-error" -use-make $(notdir $^)
-
 
 .PHONY: compile_info
 compile_info:
