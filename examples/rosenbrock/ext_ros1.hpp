@@ -2,6 +2,10 @@
 #include "petsc_rosenbrock.hpp"
 // #include <stan/math/rev/functor.hpp>
 
+#define PETSC_CLANGUAGE_CXX 1
+#include <petscvec.h>
+#include <petscerror.h>
+
 using namespace stan::math;
 
 namespace stan {
