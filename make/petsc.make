@@ -23,3 +23,7 @@ include ${PETSC_DIR}/lib/petsc/conf/variables
 
 CXXFLAGS += -I$(PETSC_DIR)/include
 LDLIBS += $(PETSC_SYS_LIB)
+
+ifneq ($(USER_HEADER), $(dir $<)user_header.hpp)
+CXXFLAGS_PROGRAM += -include $(USER_HEADER)
+endif
