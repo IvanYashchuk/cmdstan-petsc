@@ -41,7 +41,7 @@ public:
     ierr = PetscOptionsGetReal(NULL, NULL, "-alpha", &appctx_.alpha, &flg);CHKERRXX(ierr);
 
     // dummy Vec is for checking whether the destructor will be called automatically
-    ierr = VecCreateSeq(PETSC_COMM_WORLD, appctx_.n, &dummy);
+    ierr = VecCreateSeq(PETSC_COMM_SELF, appctx_.n, &dummy);
     ierr = VecSet(dummy, appctx_.alpha);
     ierr = VecAssemblyBegin(dummy);
     ierr = VecAssemblyEnd(dummy);
