@@ -57,6 +57,10 @@
 #include <stan/math/prim/functor/mpi_distributed_apply.hpp>
 #endif
 
+#define PETSC_CLANGUAGE_CXX 1
+#include <petsc.h>
+#include <mpi.h>
+
 // forward declaration for function defined in another translation unit
 stan::model::model_base &new_model(stan::io::var_context &data_context,
                                    unsigned int seed, std::ostream *msg_stream);
@@ -126,7 +130,11 @@ int command(int argc, char* argv[]) {
 
   arg_seed *random_arg
       = dynamic_cast<arg_seed *>(parser.arg("random")->arg("seed"));
+  // PETSc programs use process-based parallelism.
+  // Current implementation relies on the fact each process performs identical computations on Stan side.
+  // Therefore we broadcast the random_seed to all non-0 MPI ranks.
   unsigned int random_seed = random_arg->random_value();
+  int mpi_error = MPI_Bcast(&random_seed, 1, MPI_UNSIGNED, 0, PETSC_COMM_WORLD);CHKERRXX(mpi_error);
 
   parser.print(info);
   write_parallel_info(info);
