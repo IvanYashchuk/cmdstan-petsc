@@ -8,13 +8,13 @@
 #include <cmdstan/arguments/arg_random.hpp>
 #include <cmdstan/arguments/argument_parser.hpp>
 #include <cmdstan/io/json/json_data.hpp>
+#include <cmdstan/stream_logger_petsc.hpp>
 #include <cmdstan/write_model.hpp>
 #include <cmdstan/write_opencl_device.hpp>
 #include <cmdstan/write_parallel_info.hpp>
 #include <cmdstan/write_stan.hpp>
 #include <stan/callbacks/interrupt.hpp>
 #include <stan/callbacks/logger.hpp>
-#include <stan/callbacks/stream_logger.hpp>
 #include <stan/callbacks/stream_writer.hpp>
 #include <stan/callbacks/writer.hpp>
 #include <stan/io/dump.hpp>
@@ -100,7 +100,7 @@ static int hmc_fixed_cols = 7;  // hmc sampler outputs columns __lp + 6
 int command(int argc, char* argv[]) {
   stan::callbacks::stream_writer info(std::cout);
   stan::callbacks::stream_writer err(std::cout);
-  stan::callbacks::stream_logger logger(std::cout, std::cout, std::cout,
+  stan::callbacks::stream_logger_petsc logger(std::cout, std::cout, std::cout,
                                         std::cerr, std::cerr);
 
 #ifdef STAN_MPI
@@ -162,19 +162,25 @@ int command(int argc, char* argv[]) {
   stan::callbacks::writer init_writer;
   stan::callbacks::interrupt interrupt;
 
-  std::fstream output_stream(
+  // Open fstreams only on 0th rank
+  int rank;
+  MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+  std::fstream output_stream;
+  std::fstream diagnostic_stream;
+  if (rank == 0) {
+      output_stream.open(
       dynamic_cast<string_argument *>(parser.arg("output")->arg("file"))
           ->value()
           .c_str(),
       std::fstream::out);
-  stan::callbacks::stream_writer sample_writer(output_stream, "# ");
-
-  std::fstream diagnostic_stream(
+      diagnostic_stream.open(
       dynamic_cast<string_argument *>(
           parser.arg("output")->arg("diagnostic_file"))
           ->value()
           .c_str(),
       std::fstream::out);
+  }
+  stan::callbacks::stream_writer sample_writer(output_stream, "# ");
   stan::callbacks::stream_writer diagnostic_writer(diagnostic_stream, "# ");
 
   //////////////////////////////////////////////////
