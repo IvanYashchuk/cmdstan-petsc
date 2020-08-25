@@ -1,50 +1,27 @@
-#ifndef STAN_PETSC_INTERFACE_HPP
-#define STAN_PETSC_INTERFACE_HPP
+#include <stan/math/rev/meta.hpp>
+#include <stan/math/rev/functor/adj_jac_apply.hpp>
+#include <stan/math/prim/meta.hpp>
+#include <stan/math/prim/err/check_nonzero_size.hpp>
+#include <tuple>
 
 #define PETSC_CLANGUAGE_CXX 1
-
 #include <petsc.h>
 #include <petscts.h>
 #include <petscsys.h>
 
-#include <stan/math/rev/meta.hpp>
-#include <stan/math/rev/functor/adj_jac_apply.hpp>
-#include <stan/math/prim/fun/Eigen.hpp>
-#include <stan/math/prim/fun/typedefs.hpp>
-#include <stan/math/prim/err/check_nonzero_size.hpp>
-#include <tuple>
-
 namespace stan {
 namespace math {
 
-namespace internal {
-
-void PetscVecToEigen(const Vec& pvec, Eigen::VectorXd& evec)
-{
-    PetscErrorCode ierr;
-    PetscScalar *pdata;
-    // Returns a pointer to a contiguous array containing this processor's portion
-    // of the vector data. For standard vectors this doesn't use any copies.
-    // If the the petsc vector is not in a contiguous array then it will copy
-    // it to a contiguous array.
-    ierr = VecGetArray(pvec, &pdata);CHKERRXX(ierr);
-
-    // Make the Eigen type a map to the data. Need to be mindful of anything that
-    // changes the underlying data location like re-allocations.
-    PetscInt size;
-    ierr = VecGetSize(pvec, &size);CHKERRXX(ierr);
-    evec = Eigen::Map<Eigen::VectorXd>(pdata, size);
-    ierr = VecRestoreArray(pvec, &pdata);CHKERRXX(ierr);
-}
+namespace petsc {
 
 template <class ExternalSolver>
-class petsc_functor {
+class petsc_ts_functor {
     int N_;
     double* ic_mem_;  // Holds the input vector
     ExternalSolver solver_;
 
 public:
-    petsc_functor() : N_(0), ic_mem_(nullptr), solver_(PETSC_COMM_WORLD) {}
+    petsc_ts_functor() : N_(0), ic_mem_(nullptr), solver_(PETSC_COMM_WORLD) {}
 
     /**
      * Call the PETSc function for the input vector
@@ -63,20 +40,22 @@ public:
         }
 
         // Convert Eigen input to PETSc Vec
-        Vec petsc_ic;
-        PetscErrorCode ierr;
-        ierr = VecCreateSeqWithArray(PETSC_COMM_SELF, 1, ic.size(), ic.data(), &petsc_ic);CHKERRXX(ierr);
+        Vec petsc_ic = EigenVectorToPetscVecSeq(ic);
 
         // Initialize PETSc Vec to hold the results
         Vec petsc_out;
+        PetscErrorCode ierr;
         ierr = VecDuplicate(petsc_ic, &petsc_out);CHKERRXX(ierr);
 
-        // petsc_out = forward_function(petsc_ic)
+        ierr = VecCopy(petsc_ic, petsc_out);CHKERRXX(ierr);
         solver_.solve_forward(petsc_ic, petsc_out);
 
-        // Convert PETSc output to Eigen
+        // Convert PETSc Vec to Eigen
         Eigen::VectorXd out(N_);
-        PetscVecToEigen(petsc_out, out);
+        PetscVecToEigenVectorSeq(petsc_out, out);
+
+        ierr = VecDestroy(&petsc_out);CHKERRXX(ierr);
+        ierr = VecDestroy(&petsc_ic);CHKERRXX(ierr);
 
         return out;
     }
@@ -97,24 +76,26 @@ public:
         Eigen::Map<vector_d> ic(ic_mem_, N_);
 
         // Convert Eigen input to PETSc Vec
-        Vec petsc_ic, petsc_adj;
         PetscErrorCode ierr;
-        ierr = VecCreateSeqWithArray(PETSC_COMM_SELF, 1, ic.size(), ic.data(), &petsc_ic);CHKERRXX(ierr);
-        ierr = VecCreateSeqWithArray(PETSC_COMM_SELF, 1, adj.size(), adj.data(), &petsc_adj);CHKERRXX(ierr);
+        Vec petsc_ic = EigenVectorToPetscVecSeq(ic);
+        Vec petsc_adj = EigenVectorToPetscVecSeq(adj);
 
         // Calculate petsc_grad = adj * Jacobian(petsc_ic)
+        ierr = VecCopy(petsc_ic, petsc_adj);CHKERRXX(ierr);
+
         solver_.solve_adjoint(petsc_ic, petsc_adj);
 
         // Convert PETSc Vec to Eigen
         Eigen::VectorXd out(N_);
-        PetscVecToEigen(petsc_adj, out);
+        PetscVecToEigenVectorSeq(petsc_adj, out);
+
+        ierr = VecDestroy(&petsc_adj);CHKERRXX(ierr);
+        ierr = VecDestroy(&petsc_ic);CHKERRXX(ierr);
 
         return std::make_tuple(out);
     }
 };
-}  // namespace internal
+}  // namespace petsc
 
 }  // namespace math
 }  // namespace stan
-
-#endif

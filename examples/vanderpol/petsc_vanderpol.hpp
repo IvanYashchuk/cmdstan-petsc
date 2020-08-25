@@ -114,6 +114,7 @@ public:
 
   explicit PetscVanderpol(MPI_Comm comm) : user()
   {
+    // std::cout << "Constructor is called!" << std::endl;
     // PetscBool monitor = PETSC_TRUE;
     PetscErrorCode ierr;
 
@@ -167,6 +168,7 @@ public:
   virtual ~PetscVanderpol()
   {
     PetscErrorCode ierr;
+    // std::cout << "Desctructor is called!" << std::endl;
     /* Free work space.  All PETSc objects should be destroyed when they are no longer needed. */
     ierr = MatDestroy(&user.A);CHKERRXX(ierr);
     ierr = VecDestroy(&user.U);CHKERRXX(ierr);
@@ -180,31 +182,33 @@ public:
   /// Solve the forward problem
   PetscErrorCode solve_forward(Vec initial_condition, Vec out) const
   {
+    // std::cout << "solve_forward is called!" << std::endl;
     PetscErrorCode ierr;
-    ierr = VecCopy(initial_condition, out);CHKERRQ(ierr);
-    ierr = TSSolve(user.ts, out);CHKERRQ(ierr);
+    ierr = VecCopy(initial_condition, out);CHKERRXX(ierr);
+    ierr = TSSolve(user.ts, out);CHKERRXX(ierr);
     PetscFunctionReturn(0);
   }
 
   /// Calculate the gradient (based on FormFunctionGradient)
   PetscErrorCode solve_adjoint(Vec initial_condition, Vec grad) const
   {
+    // std::cout << "solve_adjoint is called!" << std::endl;
     PetscErrorCode    ierr;
 
     PetscFunctionBeginUser;
-    ierr = VecCopy(initial_condition, user.U);CHKERRQ(ierr);
+    ierr = VecCopy(initial_condition, user.U);CHKERRXX(ierr);
 
-    ierr = TSSetTime(user.ts, 0.0);CHKERRQ(ierr);
-    ierr = TSSetStepNumber(user.ts, 0);CHKERRQ(ierr);
-    ierr = TSResetTrajectory(user.ts);CHKERRQ(ierr);
-    ierr = TSSetTimeStep(user.ts, 0.001);CHKERRQ(ierr); /* can be overwritten by command line options */
-    ierr = TSSetFromOptions(user.ts);CHKERRQ(ierr);
+    ierr = TSSetTime(user.ts, 0.0);CHKERRXX(ierr);
+    ierr = TSSetStepNumber(user.ts, 0);CHKERRXX(ierr);
+    ierr = TSResetTrajectory(user.ts);CHKERRXX(ierr);
+    ierr = TSSetTimeStep(user.ts, 0.001);CHKERRXX(ierr); /* can be overwritten by command line options */
+    ierr = TSSetFromOptions(user.ts);CHKERRXX(ierr);
 
-    ierr = TSSolve(user.ts, user.U);CHKERRQ(ierr);
+    ierr = TSSolve(user.ts, user.U);CHKERRXX(ierr);
 
-    ierr = TSSetCostGradients(user.ts, 1, &grad, NULL);CHKERRQ(ierr);
-    ierr = TSAdjointSolve(user.ts);CHKERRQ(ierr);
-    ierr = TSResetTrajectory(user.ts);CHKERRQ(ierr);
+    ierr = TSSetCostGradients(user.ts, 1, &grad, NULL);CHKERRXX(ierr);
+    ierr = TSAdjointSolve(user.ts);CHKERRXX(ierr);
+    ierr = TSResetTrajectory(user.ts);CHKERRXX(ierr);
     PetscFunctionReturn(0);
   }
 };
