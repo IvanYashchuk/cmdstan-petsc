@@ -168,7 +168,7 @@ public:
   virtual ~PetscVanderpol()
   {
     PetscErrorCode ierr;
-    // std::cout << "Desctructor is called!" << std::endl;
+    // std::cout << "Destructor is called!" << std::endl;
     /* Free work space.  All PETSc objects should be destroyed when they are no longer needed. */
     ierr = MatDestroy(&user.A);CHKERRXX(ierr);
     ierr = VecDestroy(&user.U);CHKERRXX(ierr);
@@ -184,8 +184,20 @@ public:
   {
     // std::cout << "solve_forward is called!" << std::endl;
     PetscErrorCode ierr;
+
+    PetscFunctionBeginUser;
+
     ierr = VecCopy(initial_condition, out);CHKERRXX(ierr);
+
+    ierr = TSSetTime(user.ts, 0.0);CHKERRXX(ierr);
+    ierr = TSSetStepNumber(user.ts, 0);CHKERRXX(ierr);
+    ierr = TSSetTimeStep(user.ts, 0.01);CHKERRXX(ierr);
+    ierr = TSSetFromOptions(user.ts);CHKERRXX(ierr);
+
+    ierr = TSResetTrajectory(user.ts);CHKERRXX(ierr);
+
     ierr = TSSolve(user.ts, out);CHKERRXX(ierr);
+
     PetscFunctionReturn(0);
   }
 
@@ -196,19 +208,10 @@ public:
     PetscErrorCode    ierr;
 
     PetscFunctionBeginUser;
-    ierr = VecCopy(initial_condition, user.U);CHKERRXX(ierr);
-
-    ierr = TSSetTime(user.ts, 0.0);CHKERRXX(ierr);
-    ierr = TSSetStepNumber(user.ts, 0);CHKERRXX(ierr);
-    ierr = TSResetTrajectory(user.ts);CHKERRXX(ierr);
-    ierr = TSSetTimeStep(user.ts, 0.001);CHKERRXX(ierr); /* can be overwritten by command line options */
-    ierr = TSSetFromOptions(user.ts);CHKERRXX(ierr);
-
-    ierr = TSSolve(user.ts, user.U);CHKERRXX(ierr);
 
     ierr = TSSetCostGradients(user.ts, 1, &grad, NULL);CHKERRXX(ierr);
     ierr = TSAdjointSolve(user.ts);CHKERRXX(ierr);
-    ierr = TSResetTrajectory(user.ts);CHKERRXX(ierr);
+
     PetscFunctionReturn(0);
   }
 };
