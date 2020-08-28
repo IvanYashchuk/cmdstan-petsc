@@ -851,6 +851,8 @@ int command(int argc, char* argv[]) {
     }
   }
 
+  delete &model;
+
   output_stream.close();
   diagnostic_stream.close();
   for (size_t i = 0; i < valid_arguments.size(); ++i)
